@@ -1,1 +1,5 @@
 
+*.env
+*.__init__.py
+__init__.py
+__pycache__
