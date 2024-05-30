@@ -1,71 +1,37 @@
--- Table: masterdata.tasks
+-- Table: masterdata.innoventes_emp
 
--- DROP TABLE IF EXISTS masterdata.tasks;
+-- DROP TABLE IF EXISTS masterdata.innoventes_emp;
 
-CREATE TABLE IF NOT EXISTS masterdata.tasks
+CREATE TABLE IF NOT EXISTS masterdata.innoventes_emp
 (
-    task_id uuid NOT NULL DEFAULT masterdata.uuid_generate_v1mc(),
-    task_name character varying COLLATE pg_catalog."default",
-    task_duration character varying COLLATE pg_catalog."default",
-    created_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at timestamp with time zone NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    task_start_date character varying COLLATE pg_catalog."default",
-    task_end_date character varying COLLATE pg_catalog."default",
-    user_id character varying COLLATE pg_catalog."default",
-    CONSTRAINT task_pkey PRIMARY KEY (task_id)
+    "Id" uuid NOT NULL DEFAULT masterdata.uuid_generate_v1mc(),
+    company_name character varying COLLATE pg_catalog."default" NOT NULL,
+    email_id character varying COLLATE pg_catalog."default" NOT NULL,
+    company_code character varying COLLATE pg_catalog."default",
+    strength integer,
+    website character varying COLLATE pg_catalog."default",
+    created_at timestamp with time zone DEFAULT CURRENT_TIMESTAMP,
+    company_id character varying COLLATE pg_catalog."default" NOT NULL,
+    CONSTRAINT innoventes_emp_pkey PRIMARY KEY ("Id")
 )
 
 TABLESPACE pg_default;
 
-ALTER TABLE IF EXISTS masterdata.tasks
+ALTER TABLE IF EXISTS masterdata.innoventes_emp
     OWNER to postgres;
 
 
--- Table: masterdata.users
+-- FUNCTION: masterdata.create_company(character varying, character varying, character varying, integer, character varying, character varying)
 
--- DROP TABLE IF EXISTS masterdata.users;
+-- DROP FUNCTION IF EXISTS masterdata.create_company(character varying, character varying, character varying, integer, character varying, character varying);
 
-CREATE TABLE IF NOT EXISTS masterdata.users
-(
-    id uuid NOT NULL DEFAULT masterdata.uuid_generate_v1mc(),
-    user_name character varying COLLATE pg_catalog."default" NOT NULL,
-    user_email character varying COLLATE pg_catalog."default" NOT NULL,
-    user_id character varying COLLATE pg_catalog."default" NOT NULL,
-    CONSTRAINT users_pkey PRIMARY KEY (id)
-)
-
-TABLESPACE pg_default;
-
-ALTER TABLE IF EXISTS masterdata.users
-    OWNER to postgres;
-
--- FUNCTION: masterdata.uuid_generate_v1mc()
-
--- DROP FUNCTION IF EXISTS masterdata.uuid_generate_v1mc();
-
-CREATE OR REPLACE FUNCTION masterdata.uuid_generate_v1mc(
-	)
-    RETURNS uuid
-    LANGUAGE 'c'
-    COST 1
-    VOLATILE STRICT PARALLEL SAFE 
-AS '$libdir/uuid-ossp', 'uuid_generate_v1mc'
-;
-
-ALTER FUNCTION masterdata.uuid_generate_v1mc()
-    OWNER TO postgres;
-
-
--- FUNCTION: masterdata.create_task(character varying, character varying, character varying, character varying, character varying)
-
--- DROP FUNCTION IF EXISTS masterdata.create_task(character varying, character varying, character varying, character varying, character varying);
-
-CREATE OR REPLACE FUNCTION masterdata.create_task(
-	_user_id character varying,
-	_task_name character varying,
-	_task_duration character varying,
-	_task_start_date character varying,
-	_task_end_date character varying)
+CREATE OR REPLACE FUNCTION masterdata.create_company(
+	_company_name character varying,
+	_email_id character varying,
+	_company_code character varying,
+	_strength integer,
+	_website character varying,
+	_company_id character varying)
     RETURNS character varying
     LANGUAGE 'plpgsql'
     COST 100
@@ -73,39 +39,77 @@ CREATE OR REPLACE FUNCTION masterdata.create_task(
 AS $BODY$
                                                 
     Declare
-		__user_id character varying;
+	__company_name character varying;
+	__email_id character varying;
     
 	BEGIN
-
-       select _user_id into  __user_id 
-	   from masterdata.users where user_id=_user_id;
-	   
-	   if __user_id is not null then
-		  
-		  INSERT INTO masterdata.tasks(
-			task_name, task_duration, user_id, task_start_date, task_end_date)
-			VALUES (_task_name,_task_duration,_user_id,_task_start_date,_task_end_date);
+	
+	select company_name, email_id into __company_name, __email_id  from masterdata.innoventes_emp
+	where company_name=_company_name and email_id=_email_id;
+	
+	if __company_name is null and __email_id is null then
+	
+		  	INSERT INTO masterdata.innoventes_emp(
+			company_name, email_id, company_code, strength, website, company_id)
+			VALUES (_company_name,_email_id,_company_code,_strength,_website,_company_id);
 			RETURN 'successfully inserted';
+	else
+		return 'duplicate records found';
+	end if;
   		
-		else
-		
-		  RETURN 'failed';
-		 
-		end if;
 	 END;
 $BODY$;
 
-ALTER FUNCTION masterdata.create_task(character varying, character varying, character varying, character varying, character varying)
+ALTER FUNCTION masterdata.create_company(character varying, character varying, character varying, integer, character varying, character varying)
     OWNER TO postgres;
 
 
--- FUNCTION: masterdata.delete_task(character varying, character varying)
+-- FUNCTION: masterdata.update_company(character varying, character varying, character varying, character varying, character varying)
 
--- DROP FUNCTION IF EXISTS masterdata.delete_task(character varying, character varying);
+-- DROP FUNCTION IF EXISTS masterdata.update_company(character varying, character varying, character varying, character varying, character varying);
 
-CREATE OR REPLACE FUNCTION masterdata.delete_task(
-	_user_id character varying,
-	_task_name character varying)
+CREATE OR REPLACE FUNCTION masterdata.update_company(
+	_company_name character varying,
+	_email_id character varying,
+	_company_code character varying,
+	_website character varying,
+	_company_id character varying)
+    RETURNS character varying
+    LANGUAGE 'plpgsql'
+    COST 100
+    VOLATILE PARALLEL UNSAFE
+AS $BODY$
+BEGIN
+    -- Check if the company_id exists
+    IF EXISTS (SELECT 1 FROM masterdata.innoventes_emp WHERE company_id = _company_id) THEN
+        -- Update the company details
+        UPDATE masterdata.innoventes_emp
+        SET
+			company_name=COALESCE(NULLIF(_company_name, ''), company_name), 
+			email_id=COALESCE(NULLIF(_email_id, ''), email_id), 
+			company_code=COALESCE(NULLIF(_company_code, ''), company_code), 
+-- 			strength=COALESCE(NULLIF(_strength, ''), strength), 
+			website=COALESCE(NULLIF(_website, ''), website)
+        WHERE
+            company_id = _company_id;
+
+        RETURN 'successfully updated';
+    ELSE
+        RETURN 'failed: company_id not found';
+    END IF;
+END;
+$BODY$;
+
+ALTER FUNCTION masterdata.update_company(character varying, character varying, character varying, character varying, character varying)
+    OWNER TO postgres;
+
+
+-- FUNCTION: masterdata.delete_company(character varying)
+
+-- DROP FUNCTION IF EXISTS masterdata.delete_company(character varying);
+
+CREATE OR REPLACE FUNCTION masterdata.delete_company(
+	_company_id character varying)
     RETURNS character varying
     LANGUAGE 'plpgsql'
     COST 100
@@ -113,50 +117,40 @@ CREATE OR REPLACE FUNCTION masterdata.delete_task(
 AS $BODY$
                                                 
     Declare
-		__user_id character varying;
+		__company_id character varying;
     
 	BEGIN
 
-       select _user_id into  __user_id 
-	   from masterdata.users where user_id=_user_id;
+       select company_id into  __company_id 
+	   from masterdata.innoventes_emp where company_id=_company_id;
 	   
-	   if __user_id is not null then
+	   if __company_id is not null then
 	   	
-			if _task_name is not null then 
-	   		  --delete based on task name
-			  delete from masterdata.tasks
-			  where user_id=_user_id and task_name=_task_name;
+			  delete from masterdata.innoventes_emp
+			  where company_id=_company_id;
 
 			  RETURN 'successfully deleted';
 			  
-			else
-				--bulk delete
-				delete from masterdata.tasks
-				where user_id=_user_id;
-				
-				RETURN 'successfully deleted';
-				
-			end if;
-  		
 		else
 		
-		  RETURN 'failed';
+		  RETURN 'failed to delete: company_id not found';
 		 
 		end if;
 	 END;
 $BODY$;
 
-ALTER FUNCTION masterdata.delete_task(character varying, character varying)
+ALTER FUNCTION masterdata.delete_company(character varying)
     OWNER TO postgres;
 
 
--- FUNCTION: masterdata.get_task(character varying, character varying)
+-- FUNCTION: masterdata.get_company(character varying, integer, integer)
 
--- DROP FUNCTION IF EXISTS masterdata.get_task(character varying, character varying);
+-- DROP FUNCTION IF EXISTS masterdata.get_company(character varying, integer, integer);
 
-CREATE OR REPLACE FUNCTION masterdata.get_task(
-	_user_id character varying,
-	_task_name character varying)
+CREATE OR REPLACE FUNCTION masterdata.get_company(
+	_company_id character varying,
+	_limit integer,
+	_offset integer)
     RETURNS refcursor
     LANGUAGE 'plpgsql'
     COST 100
@@ -164,80 +158,33 @@ CREATE OR REPLACE FUNCTION masterdata.get_task(
 AS $BODY$
                                                 
     Declare
-		ref refcursor default 'taskrefcursor';
-		__user_id character varying;
+		ref refcursor default 'companyrefcursor';
+		__company_id character varying;
     
 	BEGIN
 
-       select _user_id into  __user_id 
-	   from masterdata.users where user_id=_user_id;
+       select company_id into  __company_id 
+	   from masterdata.innoventes_emp where company_id=_company_id;
 	   
-	   if __user_id is not null then
+	   if __company_id is not null then
 	   
-	   		if _task_name is not null then 
 				OPEN ref FOR 
-				  select task_name,task_duration,user_id,task_start_date,task_end_date from masterdata.tasks
-				  where user_id=_user_id and task_name=_task_name;
+				  select company_id, company_name, email_id, company_code, strength, website from masterdata.innoventes_emp
+				  where company_id=_company_id limit _limit offset _offset; 
 
 				  RETURN ref;
-			 
-			 else
-				 OPEN ref FOR 
-			 	 select task_name,task_duration,user_id,task_start_date,task_end_date from masterdata.tasks
-				 where user_id=_user_id;
-		  
-		  		RETURN ref;
-				
-			end if;
   		
 		else
 		
 		  OPEN ref FOR 
-		  SELECT null AS task_name, null AS task_duration, null AS user_id, null AS task_start_date, null AS task_end_date WHERE false;
+		  SELECT null AS company_id, null AS company_name, null AS company_code, null AS strength, null AS website WHERE false;
 			RETURN ref;
 		 
 		end if;
 	 END;
 $BODY$;
 
-ALTER FUNCTION masterdata.get_task(character varying, character varying)
+ALTER FUNCTION masterdata.get_company(character varying, integer, integer)
     OWNER TO postgres;
 
 
--- FUNCTION: masterdata.update_task(character varying, character varying, character varying, character varying, character varying)
-
--- DROP FUNCTION IF EXISTS masterdata.update_task(character varying, character varying, character varying, character varying, character varying);
-
-CREATE OR REPLACE FUNCTION masterdata.update_task(
-	_user_id character varying,
-	_task_name character varying,
-	_task_duration character varying,
-	_task_start_date character varying,
-	_task_end_date character varying)
-    RETURNS character varying
-    LANGUAGE 'plpgsql'
-    COST 100
-    VOLATILE PARALLEL UNSAFE
-AS $BODY$
-BEGIN
-    -- Check if the user exists
-    IF EXISTS (SELECT 1 FROM masterdata.users WHERE user_id = _user_id) THEN
-        -- Update the task
-        UPDATE masterdata.tasks
-        SET
-            task_name = COALESCE(NULLIF(_task_name, ''), task_name),
-            task_duration = COALESCE(NULLIF(_task_duration, ''), task_duration),
-            task_start_date = COALESCE(NULLIF(_task_start_date, ''), task_start_date),
-            task_end_date = COALESCE(NULLIF(_task_end_date, ''), task_end_date)
-        WHERE
-            user_id = _user_id;
-
-        RETURN 'successfully updated';
-    ELSE
-        RETURN 'failed: user not found';
-    END IF;
-END;
-$BODY$;
-
-ALTER FUNCTION masterdata.update_task(character varying, character varying, character varying, character varying, character varying)
-    OWNER TO postgres;

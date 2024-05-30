@@ -6,6 +6,8 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('task_organiser', task_organiser),
+    path('company_details',company_details)
+
 
 ]
 
